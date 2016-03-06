@@ -3,8 +3,27 @@ package MOctopus
 import (
 	"database/sql"
 	"errors"
+	"time"
+	"fmt"
 )
 
+func cronPullVersionInfos() {
+	time.Sleep(10 * time.Second)
+
+	for ;; {
+		err := pullVersionInfos()
+		if err != nil {
+			//TODO: LOG ERROR.... not decided which log module to use yet
+			fmt.Printf("error: " + err.Error())
+		}
+
+		time.Sleep(30*time.Second)
+	}
+}
+
+func init() {
+	go cronPullVersionInfos()
+}
 
 // id judgment yes no next versionname type
 
@@ -98,9 +117,21 @@ func pullVersionInfos() (_err error) {
 		}
 	}()
 
+	row := db.QueryRow(`
+		SELECT
+				max(lstModify)
+			FROM versions
+	`)
+	var lm int64
+	row.Scan(&lm)
+
+	if (lm == lstModify) {
+		return
+	}
+
 	rows, err := db.Query(`
 		SELECT
-				id, judgment, yes, no, next, versionName, type, lstModify
+				id, judgment, yes, no, next, versionName, type
 			FROM versions
 	`)
 	defer rows.Close()
@@ -152,8 +183,18 @@ func pullVersionInfos() (_err error) {
 		}
 	}
 
+	tmpVersionWithName := map[string]*version{}
+
+	for _, v := range result {
+		if v.Type() == "version" {
+			ver := v.(*version)
+			tmpVersionWithName[ver.VersionName] = ver
+		}
+	}
+
 	versionsMutex.Lock()
 	defer versionsMutex.Unlock()
 	versions = result
+	versionsWithName = tmpVersionWithName
 	return nil
 }
