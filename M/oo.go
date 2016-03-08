@@ -41,16 +41,11 @@ func (o *operate) getWithVersion_Recursion(n node, kvs *KVS) (*version) {
 	return ans
 }
 
-func (o *operate) newFork(JudgmentString string, yesId string, noId string) (*fork, error) {
+//update fork
+func (o *operate) newForkWithId(Id string, JudgmentString string, yesId string, noId string) {
 	j, err := NewJudgment(JudgmentString)
 	if err != nil {
 		return err
-	}
-
-	uuid, err := uuid.NewV4()
-	if err != nil {
-		logrus.Error("无法生成uuid"+err.Error())
-		return errors.New("服务器错误， 无法生成uuid")
 	}
 
 	if _, ok := versionsWithName[yesId]; yesId != "" && !ok {
@@ -61,7 +56,24 @@ func (o *operate) newFork(JudgmentString string, yesId string, noId string) (*fo
 		return nil, errors.New("不存在的目标节点:不符合条件")
 	}
 
-	return &fork{uuid, j, yesId, noId}
+	return &fork{Id, j, yesId, noId}, nil
+}
+
+func (o *operate) newFork(JudgmentString string, yesId string, noId string) (*fork, error) {
+	uuid, err := uuid.NewV4()
+	if err != nil {
+		logrus.Error("无法生成uuid"+err.Error())
+		return nil, errors.New("服务器错误， 无法生成uuid")
+	}
+
+	return o.newForkWithId(uuid, JudgmentString, yesId, noId)
+}
+
+func (o *operate) newVersionWithId(Id string, nextId string, VersionName string) (*version, error) {
+	if _, ok := versionsWithName[nextId]; nextId != "" && !ok {
+		return nil, errors.New("不存在的目标节点:符合条件")
+	}
+	return &version{Id, nextId, VersionName}
 }
 
 func (o *operate) newVersion(nextId string, VersionName string) (*version, error) {
@@ -71,11 +83,9 @@ func (o *operate) newVersion(nextId string, VersionName string) (*version, error
 		return errors.New("服务器错误， 无法生成uuid")
 	}
 
-	if _, ok := versionsWithName[nextId]; nextId != "" && !ok {
-		return nil, errors.New("不存在的目标节点:符合条件")
-	}
-	return &version{uuid, nextId, VersionName}
+	return o.newVersionWithId(uuid, nextId, VersionName)
 }
+
 
 /*
 根据版本名称和 用户信息， 返回用户应更新到的版本
